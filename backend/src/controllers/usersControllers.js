@@ -131,3 +131,145 @@ exports.login = (req, res) => {
     });
   });
 };
+
+// CRUD Operations
+exports.getAllUsers = (req, res) => {
+  db.query("SELECT userId, username, email, role, createdAt FROM Users", (err, results) => {
+    if (err) {
+      return res.status(500).json({
+        message: "Error fetching users",
+        error: err.message,
+      });
+    }
+    res.status(200).json(results);
+  });
+};
+
+exports.getUserById = (req, res) => {
+  const userId = req.params.id;
+  
+  db.query(
+    "SELECT userId, username, email, role, createdAt FROM Users WHERE userId = ?",
+    [userId],
+    (err, results) => {
+      if (err) {
+        return res.status(500).json({
+          message: "Error fetching user",
+          error: err.message,
+        });
+      }
+      if (results.length === 0) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      res.status(200).json(results[0]);
+    }
+  );
+};
+
+exports.updateUser = (req, res) => {
+  const userId = req.params.id;
+  const { username, email, role } = req.body;
+  
+  if (!username || !email || !role) {
+    return res.status(400).json({ message: "All fields are required" });
+  }
+  
+  db.query(
+    "UPDATE Users SET username = ?, email = ?, role = ? WHERE userId = ?",
+    [username, email, role, userId],
+    (err, results) => {
+      if (err) {
+        return res.status(500).json({
+          message: "Error updating user",
+          error: err.message,
+        });
+      }
+      if (results.affectedRows === 0) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      res.status(200).json({ message: "User updated successfully" });
+    }
+  );
+};
+
+exports.deleteUser = (req, res) => {
+  const userId = req.params.id;
+  
+  db.query("DELETE FROM Users WHERE userId = ?", [userId], (err, results) => {
+    if (err) {
+      return res.status(500).json({
+        message: "Error deleting user",
+        error: err.message,
+      });
+    }
+    if (results.affectedRows === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.status(200).json({ message: "User deleted successfully" });
+  });
+};
+
+exports.updatePassword = (req, res) => {
+  const userId = req.params.id;
+  const { currentPassword, newPassword } = req.body;
+  
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ message: "Both passwords are required" });
+  }
+  
+  // First get the user's current password
+  db.query(
+    "SELECT password FROM Users WHERE userId = ?",
+    [userId],
+    (err, results) => {
+      if (err) {
+        return res.status(500).json({
+          message: "Error fetching user password",
+          error: err.message,
+        });
+      }
+      if (results.length === 0) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      const user = results[0];
+      
+      // Verify current password
+      bcrypt.compare(currentPassword, user.password, (err, isMatch) => {
+        if (err) {
+          return res.status(500).json({
+            message: "Error comparing passwords",
+            error: err.message,
+          });
+        }
+        if (!isMatch) {
+          return res.status(401).json({ message: "Current password is incorrect" });
+        }
+        
+        // Hash and update new password
+        bcrypt.hash(newPassword, 10, (err, hash) => {
+          if (err) {
+            return res.status(500).json({
+              message: "Error hashing new password",
+              error: err.message,
+            });
+          }
+          
+          db.query(
+            "UPDATE Users SET password = ?, isNew = ? WHERE userId = ?",
+            [hash, false, userId],
+            (err, updateResult) => {
+              if (err) {
+                return res.status(500).json({
+                  message: "Error updating password",
+                  error: err.message,
+                });
+              }
+              res.status(200).json({ message: "Password updated successfully" });
+            }
+          );
+        });
+      });
+    }
+  );
+};
