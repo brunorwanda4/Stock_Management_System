@@ -4,8 +4,8 @@ const usersController = require("../controllers/usersControllers");
 const authMiddleware = require("../middlewares/authMiddleware");
 
 // Public routes
-router.post("/register", usersController.createUser);
 router.post("/login", usersController.login);
+router.post("/register", usersController.createUser);
 
 // Protected routes (require authentication)
 router.use(authMiddleware);
